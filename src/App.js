@@ -132,13 +132,49 @@ const CheckBoxData = [
 //Let us create a component which just display the node of our CheckBoxData
 
 const CreateCheckBox = ({ nodedata, checked, setChecked }) => {
-  const handleCheckboxChange = (e, id) => {
+  const handleCheckboxChange = (node, ischecked) => {
     setChecked((prev) => {
-      const newState = { ...prev, [id]: e.target.checked };
+      const newState = { ...prev, [node.id]: ischecked };
+
+      // Update all children recursively
+      const updateChildren = (node) => {
+        node.children?.forEach((child) => {
+          newState[child.id] = ischecked;
+          if (child.children?.length > 0) {
+            updateChildren(child);
+          }
+        });
+      };
+      updateChildren(node);
+
+      // Update all parents recursively based on child states
+      const updateParentState = (node, rootNodes) => {
+        const findParent = (targetId, nodes) => {
+          for (let n of nodes) {
+            if (n.children?.some((child) => child.id === targetId)) {
+              return n;
+            }
+            const found = findParent(targetId, n.children || []);
+            if (found) return found;
+          }
+          return null;
+        };
+
+        const parent = findParent(node.id, rootNodes);
+        if (parent) {
+          const allChecked = parent.children.every(
+            (child) => newState[child.id]
+          );
+          newState[parent.id] = allChecked;
+          updateParentState(parent, rootNodes);
+        }
+      };
+      updateParentState(node, CheckBoxData);
+
       return newState;
     });
-    console.log("The New state is", checked);
   };
+
   return (
     <div>
       {nodedata.map((node) => (
@@ -147,7 +183,7 @@ const CreateCheckBox = ({ nodedata, checked, setChecked }) => {
             <input
               type="checkbox"
               checked={checked[node.id] || false}
-              onChange={(e) => handleCheckboxChange(e, node.id)}
+              onChange={(e) => handleCheckboxChange(node, e.target.checked)}
             />
             <span className="node-name">{node.name}</span>
           </div>
